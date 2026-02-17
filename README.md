@@ -5,3 +5,6 @@ Fonction du code :
 1 - Générer un modèle 3D dans un rayon de 100m d'un rover
 2 - Obtenir les objets d'intérêt (taille entre 10-100cm) présent dans le rayon de 100m
 3 - Envoie des données sur Terre
+
+Merci de faire des update from main fréquament afin de rester à jour
+Je (Ludovik) vais m'occuper de garder le main à jour, donc merci de ne jamais modifer le code présent dans le main. Seulement dans vos branche respective.
