@@ -17,8 +17,8 @@ def trans_theta(r, theta):
     """Transformation géométrique du plan de référence du LiDAR incliné vers celui du rover
 
     Args:
-        r (float): _description_
-        theta (float): _description_
+        r (float): distance r obtenu du scan du LiDAR
+        theta (float): Angle theta associé à une distance r obtenu du scan du LiDAR
 
     Returns:
         tuple: Retourne la distance et l'angle transformer au repère du rover
