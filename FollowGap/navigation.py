@@ -5,7 +5,6 @@ Fonctions algorithmiques pures.
 Rôle :
 - Calculer la direction d’évitement (Follow-the-Gap)
 - Calculer la direction vers la cible (angle cible)
-- Fournir des outils de navigation réutilisables
 
 Important :
 - Ne contrôle PAS directement le robot
@@ -32,19 +31,16 @@ def follow_the_gap(scan, threshold=0.8):
     """
     pass
 
-
-def compute_target_angle(yaw, direction_initiale=0.0):
-    """
-    Calcule l'angle vers la direction cible.
+def angle_correction(theta_algo, theta_goal, alpha = 0.3):
+    """Correction de l'angle donnée par l'algo Follow the gap 
+    afin d'avoir un biais vers l'objectif pour s'assurer de s'en approcher
 
     Args:
-        yaw (float):
-            Orientation actuelle du robot (rad).
-        direction_initiale (float):
-            Direction souhaitée au départ (rad).
+        theta_algo (float): angle donnée par l'algo Follow the gap -> Fct Follow_the_gap
+        theta_goal (float): Angle du goal par rapport au rover -> Fct theta_goal (tool)
+        alpha (float, optional): Poid de correction. 0 -> Aucune correction, 1 -> Fait toujours face objectif. Defaults to 0.3.
 
     Returns:
-        angle_cible (float):
-            Angle relatif au robot pour revenir vers la cible.
+        float: Angle corriger
     """
-    pass
+    return (1-alpha) * theta_algo + alpha * theta_goal

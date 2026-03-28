@@ -1,0 +1,6 @@
+numpy
+<<<<<<< Updated upstream
+math
+=======
+gpiozero
+>>>>>>> Stashed changes
