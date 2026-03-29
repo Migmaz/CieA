@@ -19,7 +19,7 @@ def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     Args:
         Pr (list): Coordonné (x,y) du rover (m) 
         Pg (list): Coordonnée (x,y) du goal (m)
-        yaw (float): Orientation du rover (rad) -> fct get_yaw (sensor)
+        yaw (float): Orientation du rover (rad) -> fct IMU (sensor)
 
     Returns:
         float: Angle (rad) par rapport au rover vers le goal
@@ -35,7 +35,7 @@ def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     
     return theta_goal
 
-def scan_process(scan: np.ndarray, theta_lidar=0.0, translation=(0,0,0)) -> np.ndarray:
+def trans_lidar(scan: np.ndarray, theta_lidar=0.0, translation: tuple[float,float,float] =(0,0,0)) -> np.ndarray:
     """
     Transforme un scan LiDAR brut vers le plan du rover.
 

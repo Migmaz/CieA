@@ -32,7 +32,7 @@ def follow_the_gap(scan, threshold=0.8):
     
     pass
 
-def angle_correction(theta_algo:float, theta_goal:float, alpha:float = 0.3) -> float:
+def angle_correction(theta_algo:float, theta_goal:float, alpha = 0.3) -> float:
     """Correction de l'angle donnée par l'algo Follow the gap 
     afin d'avoir un biais vers l'objectif pour s'assurer de s'en approcher
 

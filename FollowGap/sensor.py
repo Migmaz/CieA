@@ -37,7 +37,7 @@ def get_lidar_scan():
     pass
 
 
-def imu() -> tuple[np.ndarray,float]:
+def IMU() -> tuple[np.ndarray,float]:
     """Récupère les données du capteur inertielle (IMU)
 
     Returns:
