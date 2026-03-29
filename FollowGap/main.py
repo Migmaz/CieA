@@ -19,7 +19,7 @@ import numpy as np
 # =================================================
 # Importation de fonctions
 # =================================================
-from tool import theta_goal, trans_theta
+
 
 # =================================================
 # Code

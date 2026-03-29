@@ -13,26 +13,6 @@ def normalize_angle(theta: float) -> float:
     """
     return (theta + math.pi) % (2 * math.pi) - math.pi
 
-def trans_theta(r : float, theta : float) -> tuple[float,float]:
-    """Transformation géométrique du plan de référence du LiDAR incliné vers celui du rover
-
-    Args:
-        r (float): distance r (m) obtenu du scan du LiDAR
-        theta (float): Angle (rad) associé à une distance r obtenu du scan du LiDAR
-
-    Returns:
-        tuple: Retourne la distance (m) et l'angle (rad) transformer au repère du rover
-    """
-    theta_lidar = np.deg2rad(10)
-    
-    x = r*np.cos(theta)
-    y = r*np.sin(theta) * np.cos(theta_lidar)
-    
-    d = np.sqrt(x**2 + y**2)  
-    theta_trans = np.atan2(y,x)
-    
-    return d,theta_trans
-
 def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     """Calcul le theta par rapport au rover vers le goal
 
@@ -54,3 +34,36 @@ def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     theta_goal = normalize_angle(theta_global - yaw)
     
     return theta_goal
+
+def scan_process(scan: np.ndarray, theta_lidar=0.0, translation=(0,0,0)) -> np.ndarray:
+    """
+    Transforme un scan LiDAR brut vers le plan du rover.
+
+    Args:
+        scan (np.ndarray): Scan du LiDAR [x, y, z], shape Nx3
+        theta_lidar (float, optional): Angle d'inclinaison du LiDAR (rad). Defaults to 0.0.
+        translation (tuple, optional): Position du LiDAR dans le rover (tx, ty, tz). Defaults to (0,0,0).
+
+    Returns:
+        np.ndarray: Scan formaté [distance, theta], shape Nx2
+    """
+    tx, ty, tz = translation
+
+    # Rotation autour de l'axe X (inclinée)
+    R = np.array([
+        [1, 0, 0],
+        [0, np.cos(theta_lidar), -np.sin(theta_lidar)],
+        [0, np.sin(theta_lidar),  np.cos(theta_lidar)]
+    ])
+    t = np.array([tx, ty, tz])
+
+    pts_rover = (R @ scan.T).T + t
+
+    x_r = pts_rover[:,0]
+    y_r = pts_rover[:,1]
+
+    distances = np.sqrt(x_r**2 + y_r**2)
+    theta = np.arctan2(y_r, x_r)
+
+    scan_proc = np.stack([distances, theta], axis=1)
+    return scan_proc
