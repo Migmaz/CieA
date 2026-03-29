@@ -19,7 +19,7 @@ def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     Args:
         Pr (list): Coordonné (x,y) du rover (m) 
         Pg (list): Coordonnée (x,y) du goal (m)
-        yaw (float): Orientation du rover (rad) -> fct get_yaw (sensor)
+        yaw (float): Orientation du rover (rad) -> fct IMU (sensor)
 
     Returns:
         float: Angle (rad) par rapport au rover vers le goal
