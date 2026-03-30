@@ -58,16 +58,120 @@ def generate_multi_gap_lidar_xyz(
 
     return points, angles, ranges
 
+def simulate_lidar(position, obstacles, n_rays=360, max_range=10.0):
+    angles = np.linspace(-np.pi, np.pi, n_rays)
+    distances = np.full(n_rays, max_range)
+
+    for i, theta in enumerate(angles):
+        direction = np.array([np.cos(theta), np.sin(theta)])
+
+        for obs in obstacles:
+            oc = position - obs["center"]
+
+            b = 2 * np.dot(direction, oc)
+            c = np.dot(oc, oc) - obs["radius"]**2
+            delta = b**2 - 4*c
+
+            if delta >= 0:
+                t = (-b - np.sqrt(delta)) / 2
+                if 0 < t < distances[i]:
+                    distances[i] = t
+
+    return np.column_stack((distances, angles))
+
+# =================================
+# Mini Benchmark / Simulation + complète
+# =================================
+
+obstacles = [
+    {"center": np.array([4, 0]), "radius": 1},
+    {"center": np.array([0, 5]), "radius": 1},
+    {"center": np.array([0, -3]), "radius": 1},
+     {"center": np.array([4, 4]), "radius": 0.5},
+]
+
+goal = np.array([6, 6])
 
 if __name__ == "__main__":
     from tool import trans_lidar
-    from follow_gap import preprocess_lidar, safety_buble, find_best_gap, apply_obstacle_threshold
+    from follow_gap import FollowGap
     
-    pts, theta, range = generate_multi_gap_lidar_xyz()
+    pts, theta, blblbl = generate_multi_gap_lidar_xyz()
     scan = trans_lidar(pts)
-    scan_filter = preprocess_lidar(scan)
-    scan_filter = apply_obstacle_threshold(scan_filter)
-    scan_proc = safety_buble(scan_filter)
-    best_gap = find_best_gap(scan_proc,0)
-    print(best_gap)
     
+    fg = FollowGap()
+    
+    idx,angle,debug_scan = fg.compute(scan,np.pi/2)
+    print(idx)
+    print(debug_scan[idx], angle)
+    
+    def run_simulation():
+        pos = np.array([0.0, 0.0])
+        heading = 0.0  # orientation du robot
+
+        trajectory = [pos.copy()]
+
+        for _ in range(100):
+            # 🔹 1. Simuler LiDAR (repère monde)
+            scan = simulate_lidar(pos, obstacles)
+
+            # 🔹 2. Transformer en repère robot
+            scan[:, 1] -= heading
+            scan[:, 1] = (scan[:, 1] + np.pi) % (2*np.pi) - np.pi
+
+            # 🔹 3. Angle vers le goal (dans le repère monde → robot)
+            theta_goal = np.arctan2(goal[1] - pos[1], goal[0] - pos[0])
+            theta_goal -= heading
+            theta_goal = (theta_goal + np.pi) % (2*np.pi) - np.pi
+
+            # 🔹 4. Follow Gap
+            idx, theta_target, debug_scan = fg.compute(scan, theta_goal)
+            print(theta_target)
+            if theta_target is None :
+                break
+            # 🔹 5. Dynamique rotation (modèle unicycle simplifié)
+            max_turn_rate = 0.3  # rad / step
+
+            angle_diff = theta_target
+            angle_diff = (angle_diff + np.pi) % (2*np.pi) - np.pi
+            angle_diff = np.clip(angle_diff, -max_turn_rate, max_turn_rate)
+
+            heading += angle_diff
+
+            # 🔹 6. Avancer dans la direction actuelle
+            step_size = 0.2
+            pos += step_size * np.array([np.cos(heading), np.sin(heading)])
+
+            trajectory.append(pos.copy())
+
+            # 🔹 7. Condition d'arrêt
+            if np.linalg.norm(pos - goal) < 0.1:
+                print("Goal reached!")
+                break
+
+        return np.array(trajectory)
+    
+    import matplotlib.pyplot as plt
+
+    def plot_simulation(traj, obstacles, goal):
+        plt.figure(figsize=(6,6))
+
+        # trajectoire
+        plt.plot(traj[:,0], traj[:,1], '-o', label="Trajectory")
+
+        # obstacles
+        for obs in obstacles:
+            circle = plt.Circle(obs["center"], obs["radius"], color='r', alpha=0.5)
+            plt.gca().add_patch(circle)
+
+        # goal
+        plt.scatter(goal[0], goal[1], c='g', s=100, label="Goal")
+
+        plt.axis('equal')
+        plt.grid()
+        plt.legend()
+        plt.title("Follow Gap Navigation Test")
+
+        plt.show()
+        
+    plot_simulation(run_simulation(),obstacles,goal)
