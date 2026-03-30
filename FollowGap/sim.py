@@ -62,6 +62,7 @@ def generate_multi_gap_lidar_xyz(
 if __name__ == "__main__":
     from tool import trans_lidar
     from follow_gap import preprocess_lidar, safety_buble, find_best_gap, obstacle_threshold, find_best_point
+    from follow_gap import FollowGap
     
     pts, theta, range = generate_multi_gap_lidar_xyz()
     scan = trans_lidar(pts)
@@ -73,3 +74,8 @@ if __name__ == "__main__":
     best_point = find_best_point(start_i, end_i, scan_proc)
     print(best_point)
     print(scan_proc[best_point])
+    
+    fg = FollowGap()
+    
+    idx,angle,debug_scan = fg.compute(scan,0)
+    print(idx)
