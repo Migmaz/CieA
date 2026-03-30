@@ -12,6 +12,9 @@ Très utile pour :
 - valider les algorithmes
 """
 import numpy as np
+import os
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 def generate_multi_gap_lidar_xyz(
     num_points=360,
@@ -107,71 +110,134 @@ if __name__ == "__main__":
     
     def run_simulation():
         pos = np.array([0.0, 0.0])
-        heading = 0.0  # orientation du robot
+        heading = 0.0
 
         trajectory = [pos.copy()]
+        scans = []
 
         for _ in range(100):
-            # 🔹 1. Simuler LiDAR (repère monde)
             scan = simulate_lidar(pos, obstacles)
 
-            # 🔹 2. Transformer en repère robot
+            # repère robot
             scan[:, 1] -= heading
             scan[:, 1] = (scan[:, 1] + np.pi) % (2*np.pi) - np.pi
 
-            # 🔹 3. Angle vers le goal (dans le repère monde → robot)
             theta_goal = np.arctan2(goal[1] - pos[1], goal[0] - pos[0])
             theta_goal -= heading
             theta_goal = (theta_goal + np.pi) % (2*np.pi) - np.pi
 
-            # 🔹 4. Follow Gap
             idx, theta_target, debug_scan = fg.compute(scan, theta_goal)
-            print(theta_target)
-            if theta_target is None :
-                break
-            # 🔹 5. Dynamique rotation (modèle unicycle simplifié)
-            max_turn_rate = 0.3  # rad / step
 
-            angle_diff = theta_target
-            angle_diff = (angle_diff + np.pi) % (2*np.pi) - np.pi
+            if theta_target is None:
+                break
+
+            # dynamique
+            max_turn_rate = 0.3
+            angle_diff = (theta_target + np.pi) % (2*np.pi) - np.pi
             angle_diff = np.clip(angle_diff, -max_turn_rate, max_turn_rate)
 
             heading += angle_diff
 
-            # 🔹 6. Avancer dans la direction actuelle
             step_size = 0.2
             pos += step_size * np.array([np.cos(heading), np.sin(heading)])
 
             trajectory.append(pos.copy())
+            scans.append(scan.copy())
 
-            # 🔹 7. Condition d'arrêt
             if np.linalg.norm(pos - goal) < 0.1:
                 print("Goal reached!")
                 break
 
-        return np.array(trajectory)
-    
-    import matplotlib.pyplot as plt
+        return np.array(trajectory), scans
 
-    def plot_simulation(traj, obstacles, goal):
-        plt.figure(figsize=(6,6))
+    def animate_simulation(obstacles, goal):
+        fig, ax = plt.subplots(figsize=(6,6))
 
-        # trajectoire
-        plt.plot(traj[:,0], traj[:,1], '-o', label="Trajectory")
+        pos = np.array([0.0, 0.0])
+        heading = 0.0
+
+        traj = [pos.copy()]
+
+        # éléments graphiques
+        traj_line, = ax.plot([], [], '-b', label="Trajectory")
+        robot_point = ax.scatter([], [], c='blue', s=50)
+        lidar_points = ax.scatter([], [], s=2, alpha=0.2)
 
         # obstacles
         for obs in obstacles:
             circle = plt.Circle(obs["center"], obs["radius"], color='r', alpha=0.5)
-            plt.gca().add_patch(circle)
+            ax.add_patch(circle)
 
         # goal
-        plt.scatter(goal[0], goal[1], c='g', s=100, label="Goal")
+        ax.scatter(goal[0], goal[1], c='g', s=100, label="Goal")
 
-        plt.axis('equal')
-        plt.grid()
-        plt.legend()
-        plt.title("Follow Gap Navigation Test")
+        ax.set_xlim(-2, 8)
+        ax.set_ylim(-5, 8)
+        ax.set_aspect('equal')
+        ax.grid()
+        ax.legend()
+
+        def update(frame):
+            nonlocal pos, heading, traj
+
+            # 🔹 LiDAR
+            scan = simulate_lidar(pos, obstacles)
+
+            # repère robot
+            scan[:,1] -= heading
+            scan[:,1] = (scan[:,1] + np.pi) % (2*np.pi) - np.pi
+
+            # angle goal
+            theta_goal = np.arctan2(goal[1] - pos[1], goal[0] - pos[0])
+            theta_goal -= heading
+            theta_goal = (theta_goal + np.pi) % (2*np.pi) - np.pi
+
+            # Follow Gap
+            idx, theta_target, debug_scan = fg.compute(scan, theta_goal)
+
+            if theta_target is None:
+                return traj_line, robot_point, lidar_points
+
+            # dynamique
+            max_turn_rate = 0.3
+            angle_diff = (theta_target + np.pi) % (2*np.pi) - np.pi
+            angle_diff = np.clip(angle_diff, -max_turn_rate, max_turn_rate)
+
+            heading += angle_diff
+
+            # mouvement
+            step_size = 0.2
+            pos += step_size * np.array([np.cos(heading), np.sin(heading)])
+
+            traj.append(pos.copy())
+            
+            if np.linalg.norm(pos - goal) < 0.1:
+                print("Goal reached!")
+                print(frame)
+                anim.save("simulation(1).gif", writer="pillow", fps=10)
+                anim.event_source.stop()
+
+            # 🔹 update traj
+            traj_np = np.array(traj)
+            traj_line.set_data(traj_np[:,0], traj_np[:,1])
+
+            # 🔹 robot
+            robot_point.set_offsets(pos)
+
+            # 🔹 LiDAR points (dans monde)
+            x = pos[0] + scan[:,0] * np.cos(scan[:,1] + heading)
+            y = pos[1] + scan[:,0] * np.sin(scan[:,1] + heading)
+            lidar_points.set_offsets(np.c_[x,y])
+
+            return traj_line, robot_point, lidar_points
+
+        anim = FuncAnimation(fig, update, frames=150, interval=50, blit=True)
 
         plt.show()
-        
-    plot_simulation(run_simulation(),obstacles,goal)
+
+        return anim
+    
+    animate_simulation(obstacles, goal)
+    
+    anim = animate_simulation(obstacles, goal)
+    anim.save("simulation.gif", writer="pillow", fps=10)

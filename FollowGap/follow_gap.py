@@ -4,14 +4,10 @@ import numpy as np
 
 class FollowGap:
     """
-    Implémentation améliorée (V2) de Follow-The-Gap.
-
-    Améliorations:
-        - Masque valide au lieu de zéros destructifs
-        - Safety bubble vectorisée sur tous les obstacles
-        - Meilleur scoring des gaps
-        - Best point orienté vers le goal
-        - Fusion goal + gap pour convergence globale
+    Identifie le meilleur gap dans un scan LiDAR Nx2 [distance, angle] en combinant la distance au goal et la longueur du gap.
+    Implémentation complète de l'algorithme Follow-The-Gap pour navigation LiDAR.
+    Pipeline:
+        preprocess → threshold → safety bubble → find gap → best point
     """
 
     def __init__(
@@ -44,7 +40,16 @@ class FollowGap:
 
     def preprocess_lidar(self, scan: np.ndarray) -> np.ndarray:
         """
-        Nettoie et lisse le scan LiDAR.
+        Prétraite un scan LiDAR Nx2 [distance, angle].
+        
+        Nettoie les données en remplaçant les valeurs invalides (NaN, inf),
+        applique un clipping des distances et un lissage optionnel pour réduire le bruit.
+
+        Args:
+            scan (np.ndarray): Scan LiDAR brut Nx2 [distance, angle]
+
+        Returns:
+            np.ndarray: Scan LiDAR prétraité Nx2 [distance, angle]
         """
         scan = scan.copy()
 
@@ -64,13 +69,33 @@ class FollowGap:
 
     def build_valid_mask(self, scan: np.ndarray) -> np.ndarray:
         """
-        Construit un masque des points navigables.
+        Construit un masque de points navigables basé sur un seuil de distance.
+        
+        Tous les points avec une distance supérieure au seuil sont considérés comme valides
+        et potentiellement navigables.
+
+        Args:
+            scan (np.ndarray): Scan LiDAR prétraité Nx2 [distance, angle]
+
+        Returns:
+            np.ndarray: Masque booléen Nx1 (True = libre, False = obstacle)
         """
         return scan[:, 0] > self.threshold
 
     def safety_bubble(self, scan: np.ndarray, valid: np.ndarray) -> np.ndarray:
         """
-        Applique une dilatation autour des obstacles (vectorisée).
+        Applique une bulle de sécurité autour des obstacles détectés dans le scan LiDAR.
+        
+        Cette fonction dilate les zones occupées (obstacles) afin de créer une marge de sécurité
+        autour de ceux-ci. Tous les points situés dans un rayon d'indices défini autour des obstacles
+        sont marqués comme non navigables.
+
+        Args:
+            scan (np.ndarray): Scan LiDAR Nx2 [distance, angle]
+            valid (np.ndarray): Masque booléen Nx1 indiquant les points navigables
+
+        Returns:
+            np.ndarray: Nouveau masque booléen Nx1 avec la bulle de sécurité appliquée
         """
         obstacle_mask = ~valid
 
@@ -79,9 +104,21 @@ class FollowGap:
 
         return valid & (~inflated)
 
-    def find_best_gap(self, scan: np.ndarray, valid: np.ndarray, theta_goal: float):
+    def find_best_gap(self, scan: np.ndarray, valid: np.ndarray, theta_goal: float) -> tuple[int,int]:
         """
-        Sélectionne le meilleur gap avec scoring multi-critères.
+        Identifie le meilleur gap dans un scan LiDAR Nx2 [distance, angle]
+        en combinant plusieurs critères : orientation vers le goal, taille du gap et distance moyenne.
+
+        Chaque gap est évalué selon un score pondéré permettant de favoriser
+        les zones larges, dégagées et alignées avec la direction cible.
+
+        Args:
+            scan (np.ndarray): Scan LiDAR prétraité Nx2 [distance, angle]
+            valid (np.ndarray): Masque booléen Nx1 (True = libre, False = obstacle)
+            theta_goal (float): Angle cible (rad)
+
+        Returns:
+            tuple[int,int]: (start_index, stop_index) du meilleur gap
         """
         distances = scan[:, 0]
         angles = scan[:, 1]
@@ -125,9 +162,23 @@ class FollowGap:
 
         return starts[best], stops[best]
 
-    def find_best_point(self, scan: np.ndarray, start: int, stop: int, theta_goal: float):
+    def find_best_point(self, scan: np.ndarray, start: int, stop: int, theta_goal: float)->int:
         """
-        Sélectionne le meilleur point dans le gap avec biais directionnel.
+        Identifie le point optimal à l'intérieur d'un gap LiDAR donné en utilisant une moyenne mobile
+        et un biais directionnel vers le goal.
+
+        Cette fonction cherche le point correspondant à une grande distance libre
+        tout en favorisant les directions proches de l'angle cible. Les distances sont lissées
+        par convolution afin d'éviter les variations locales trop brusques.
+
+        Args:
+            scan (np.ndarray): Scan LiDAR prétraité Nx2 [distance, angle]
+            start (int): Index du début du gap
+            stop (int): Index de fin du gap
+            theta_goal (float): Angle cible (rad)
+
+        Returns:
+            int: Index du point optimal à l'intérieur du gap
         """
         distances = scan[start:stop, 0]
         angles = scan[start:stop, 1]
@@ -149,9 +200,22 @@ class FollowGap:
 
         return np.argmax(score) + start
 
-    def compute(self, scan: np.ndarray, theta_goal: float):
+    def compute(self, scan: np.ndarray, theta_goal: float) -> tuple[int,float,np.ndarray]:
         """
-        Pipeline complet avec fusion goal + gap.
+        Exécute l'algorithme Follow-The-Gap complet avec fusion entre navigation locale et direction globale.
+
+        Pipeline:
+            preprocess → masque valide → safety bubble → détection du gap → sélection du point optimal → fusion avec goal
+
+        Args:
+            scan (np.ndarray): Scan LiDAR brut Nx2 [distance, angle]
+            theta_goal (float): Angle cible global (rad)
+
+        Returns:
+            tuple:
+                best_index (int): Index du point sélectionné dans le scan
+                best_angle (float): Angle final de navigation (rad)
+                scan (np.ndarray): Scan prétraité Nx2 [distance, angle]
         """
         scan = self.preprocess_lidar(scan)
 
