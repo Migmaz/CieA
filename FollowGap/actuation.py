@@ -12,3 +12,25 @@ Entrée :
 Sortie :
 - signaux moteurs
 """
+
+# Ludo : À modifier les schémas de fonctions car peu clair et pas adapter
+
+
+def send_command(cmd_vel):
+    """
+    Envoie une commande aux moteurs.
+
+    Args:
+        cmd_vel (dict):
+            {
+                "linear": float (m/s),
+                "angular": float (rad/s)
+            }
+
+    Returns:
+        None
+
+    Effet:
+        Convertit en PWM et contrôle les moteurs.
+    """
+    pass
