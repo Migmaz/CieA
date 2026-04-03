@@ -20,7 +20,7 @@ import numpy as np
 # Importation de fonctions
 # =================================================
 
-from FollowGap.FTG import FollowGap
+from FollowGap import FTG, FSM, tool
 
 # =================================================
 # Code
