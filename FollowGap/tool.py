@@ -106,7 +106,7 @@ def compute_scan(pts_rot: np.ndarray, z_min = 0.05, z_max = 0.5) ->  np.ndarray:
     z = pts_rot[:,2]
     
     dist = np.hypot(x,y)
-    theta = np.arctan2(y,z)
+    theta = np.arctan2(y,x)
     
     weight = np.clip((z-z_min) / (z_max - z_min), 0, 1)
     
