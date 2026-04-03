@@ -73,7 +73,7 @@ def trans_to_rover(scan: np.ndarray, pitch: float, translation: tuple[float,floa
 
 def filter_ground(pts_rot: np.ndarray, z_min=0.05) -> np.ndarray:
     """
-    Supprime les points correspondant au sol en se bansant sur la hauteur z
+    Supprime les points correspondant au sol en se basant sur la hauteur z
 
     Args:
         pts_rot (np.ndarray): Points [x, y, z] Nx3 dans le repère du rover
