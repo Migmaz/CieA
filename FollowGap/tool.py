@@ -35,6 +35,31 @@ def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     
     return theta_goal
 
+def preprocess_lidar(scan: np.ndarray, min_range = 0.05, max_range = 10) -> np.ndarray:
+        """
+        Prétraite un scan LiDAR Nx2 [distance, angle].
+
+        Nettoie les données, remplace NaN/inf, applique un clipping
+        et un lissage optionnel.
+
+        Args:
+            scan (np.ndarray): Scan Nx2 [distance, angle]
+
+        Returns:
+            np.ndarray: Scan nettoyé Nx2 [distance, angle]
+        """
+        scan = scan.copy()
+
+        distances = scan[:, 0]
+        angles = scan[:, 1]
+
+        invalid = np.isnan(distances) | np.isinf(distances)
+        distances[invalid] = max_range
+
+        distances = np.clip(distances, min_range, max_range)
+
+        return np.stack((distances, angles), axis=1)
+
 def trans_to_rover(scan: np.ndarray, pitch: float, translation: tuple[float,float,float] =(0,0,0)) -> np.ndarray :
     """
     Transforme un scan LiDAR [r, theta] en points 3D dans le repère du rover
