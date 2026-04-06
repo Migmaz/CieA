@@ -90,8 +90,8 @@ def trans_to_rover(scan: np.ndarray, pitch: float, translation: tuple[float,floa
     tx, ty, tz = translation
     
     x_rot = x + tx
-    y_rot = cx * y - sx * z + ty
-    z_rot = sx * y + cx * z + tz
+    y_rot = cx * y + ty
+    z_rot = sx * y + tz
     
     return np.stack((x_rot, y_rot, z_rot), axis=1)
 
