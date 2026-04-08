@@ -35,6 +35,31 @@ def theta_goal(Pr:list[float], Pg:list[float],yaw:float) -> float:
     
     return theta_goal
 
+def preprocess_lidar(scan: np.ndarray, min_range = 0.05, max_range = 10) -> np.ndarray:
+        """
+        Prétraite un scan LiDAR Nx2 [distance, angle].
+
+        Nettoie les données, remplace NaN/inf, applique un clipping
+        et un lissage optionnel.
+
+        Args:
+            scan (np.ndarray): Scan Nx2 [distance, angle]
+
+        Returns:
+            np.ndarray: Scan nettoyé Nx2 [distance, angle]
+        """
+        scan = scan.copy()
+
+        distances = scan[:, 0]
+        angles = scan[:, 1]
+
+        invalid = np.isnan(distances) | np.isinf(distances)
+        distances[invalid] = max_range
+
+        distances = np.clip(distances, min_range, max_range)
+
+        return np.stack((distances, angles), axis=1)
+
 def trans_to_rover(scan: np.ndarray, pitch: float, translation: tuple[float,float,float] =(0,0,0)) -> np.ndarray :
     """
     Transforme un scan LiDAR [r, theta] en points 3D dans le repère du rover
@@ -65,8 +90,8 @@ def trans_to_rover(scan: np.ndarray, pitch: float, translation: tuple[float,floa
     tx, ty, tz = translation
     
     x_rot = x + tx
-    y_rot = cx * y - sx * z + ty
-    z_rot = sx * y + cx * z + tz
+    y_rot = cx * y + ty
+    z_rot = sx * y + tz
     
     return np.stack((x_rot, y_rot, z_rot), axis=1)
 
@@ -84,9 +109,9 @@ def filter_ground(pts_rot: np.ndarray, z_min=0.05) -> np.ndarray:
     """
     return pts_rot[pts_rot[:,2] > z_min]
 
-def compute_scan(pts_rot: np.ndarray, z_min = 0.05, z_max = 0.5) ->  np.ndarray:
+def compute_scan(pts_rot: np.ndarray, z_min = 0.05, z_max = 0.5) ->  tuple[np.ndarray,np.ndarray]:
     """
-    Génère un scan 2D pondéré à partir des points 3D
+    Génère un scan 2D réel et pondéré à partir des points 3D
     
     Étapes :
     1. Projection sur le plan XY
@@ -99,7 +124,10 @@ def compute_scan(pts_rot: np.ndarray, z_min = 0.05, z_max = 0.5) ->  np.ndarray:
         z_max (float, optional): Hauteur maximal (normalisation du poids). Defaults to 0.5.
 
     Returns:
-        np.ndarray: Scan 2D pondéré [distance, angle] Nx2
+            tuple:
+                - np.ndarray: Scan 2D réel [distance, angle] Nx2
+                - np.ndarray: Scan 2D pondéré [distance, angle] Nx2
+        
     """
     x = pts_rot[:,0]
     y = pts_rot[:,1]
@@ -112,4 +140,4 @@ def compute_scan(pts_rot: np.ndarray, z_min = 0.05, z_max = 0.5) ->  np.ndarray:
     
     dist_weight = dist * weight
     
-    return np.column_stack(dist_weight, theta)
+    return np.column_stack(dist, theta), np.column_stack(dist_weight, theta)

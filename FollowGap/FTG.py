@@ -10,19 +10,17 @@ class FollowGap:
         self,
         max_range=10.0,
         min_range=0.05,
-        smooth_window=5,
         bubble_radius=16,
         threshold=2.0,
         conv_size=80,
         weight_goal=0.6,
-        weight_dist=0.2, 
+        weight_dist=0.2,
         weight_len=0.3,
         alpha_point=1.0,
         alpha_final=0.7
     ):
         self.max_range = max_range
         self.min_range = min_range
-        self.smooth_window = smooth_window
         self.bubble_radius = bubble_radius
         self.threshold = threshold
         self.conv_size = conv_size
@@ -33,35 +31,8 @@ class FollowGap:
 
         self.alpha_point = alpha_point
         self.alpha_final = alpha_final
-
-    def preprocess_lidar(self, scan: np.ndarray) -> np.ndarray:
-        """
-        Prétraite un scan LiDAR Nx2 [distance, angle].
-
-        Nettoie les données, remplace NaN/inf, applique un clipping
-        et un lissage optionnel.
-
-        Args:
-            scan (np.ndarray): Scan Nx2 [distance, angle]
-
-        Returns:
-            np.ndarray: Scan nettoyé Nx2 [distance, angle]
-        """
-        scan = scan.copy()
-
-        distances = scan[:, 0]
-        angles = scan[:, 1]
-
-        invalid = np.isnan(distances) | np.isinf(distances)
-        distances[invalid] = self.max_range
-
-        distances = np.clip(distances, self.min_range, self.max_range)
-
-        if self.smooth_window > 1:
-            kernel = np.ones(self.smooth_window) / self.smooth_window
-            distances = np.convolve(distances, kernel, mode='same')
-
-        return np.stack((distances, angles), axis=1)
+        
+        self._bubble_kernel = np.ones(2 * bubble_radius + 1)
 
 
     def build_valid_mask(self, scan_true: np.ndarray) -> np.ndarray:
@@ -69,7 +40,7 @@ class FollowGap:
         Construit un masque de points navigables basé sur la distance réelle.
 
         Args:
-            scan_true (np.ndarray): Scan Nx2 [distance réelle, angle]
+            scan_true (np.ndarray): Nx2 [distance réelle, angle]
 
         Returns:
             np.ndarray: masque booléen (True = libre, False = obstacle)
@@ -77,12 +48,11 @@ class FollowGap:
         return scan_true[:, 0] > self.threshold
 
 
-    def safety_bubble(self, scan_true: np.ndarray, valid: np.ndarray) -> np.ndarray:
+    def safety_bubble(self, valid: np.ndarray) -> np.ndarray:
         """
         Applique une bulle de sécurité autour des obstacles.
 
         Args:
-            scan_true (np.ndarray): Scan Nx2 [distance réelle, angle]
             valid (np.ndarray): masque navigable
 
         Returns:
@@ -90,8 +60,11 @@ class FollowGap:
         """
         obstacle_mask = ~valid
 
-        kernel = np.ones(2 * self.bubble_radius + 1)
-        inflated = np.convolve(obstacle_mask.astype(float), kernel, mode='same') > 0
+        inflated = np.convolve(
+            obstacle_mask.astype(float),
+            self._bubble_kernel,
+            mode='same'
+        ) > 0
 
         return valid & (~inflated)
 
@@ -101,7 +74,7 @@ class FollowGap:
         Identifie le meilleur gap dans un scan.
 
         Args:
-            scan (np.ndarray): Scan Nx2 [distance pondérée, angle]
+            scan (np.ndarray): Nx2 [distance pondérée, angle]
             valid (np.ndarray): masque (basé sur distances réelles)
             theta_goal (float): angle cible
 
@@ -121,18 +94,19 @@ class FollowGap:
         if valid[-1]:
             stops = np.append(stops, len(valid))
 
-        if len(starts) == 0:
+        if len(starts) == 0 or len(stops) == 0:
             return None, None
 
         lengths = stops - starts
         lengths_norm = lengths / (np.max(lengths) + 1e-6)
 
-        # moyenne distance (pondérée ici volontairement)
+        # moyenne distance pondérée
         cumsum = np.cumsum(distances)
         sums = np.array([
             cumsum[stops[i] - 1] - (cumsum[starts[i] - 1] if starts[i] > 0 else 0)
             for i in range(len(starts))
         ])
+
         means = sums / (lengths + 1e-6)
         means_norm = means / (np.max(means) + 1e-6)
 
@@ -194,7 +168,7 @@ class FollowGap:
                 theta_goal: float
                ) -> tuple[int, float, np.ndarray]:
         """
-        Exécute Follow-The-Gap avec séparation distances réelles / pondérées.
+        Exécute Follow-The-Gap.
 
         Args:
             scan_true (np.ndarray): Nx2 [distance réelle, angle]
@@ -205,24 +179,24 @@ class FollowGap:
             tuple:
                 - index du point choisi
                 - angle final
-                - scan pondéré prétraité
+                - scan utilisé
         """
 
-        scan = self.preprocess_lidar(scan_eff)
+        if scan_true.shape != scan_eff.shape:
+            raise ValueError("scan_true et scan_eff doivent avoir la même shape")
 
         valid = self.build_valid_mask(scan_true)
-        valid = self.safety_bubble(scan_true, valid)
+        valid = self.safety_bubble(valid)
 
-        start, stop = self.find_best_gap(scan, valid, theta_goal)
+        start, stop = self.find_best_gap(scan_eff, valid, theta_goal)
 
         if start is None:
-            return None, None, scan
+            return None, None, scan_eff
 
-        best_i = self.find_best_point(scan, start, stop, theta_goal)
+        best_i = self.find_best_point(scan_eff, start, stop, theta_goal)
 
-        theta_gap = scan[best_i, 1]
+        theta_gap = scan_eff[best_i, 1]
 
-        # fusion goal + gap
         theta_final = (
             self.alpha_final * theta_gap +
             (1 - self.alpha_final) * theta_goal
@@ -230,4 +204,4 @@ class FollowGap:
 
         theta_final = np.clip(theta_final, -np.pi, np.pi)
 
-        return best_i, theta_final, scan
+        return best_i, theta_final, scan_eff
