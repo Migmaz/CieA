@@ -37,7 +37,7 @@ def get_lidar_scan():
     pass
 
 
-def IMU() -> tuple[np.ndarray,float]:
+def dechu() -> tuple[np.ndarray,float]:
     """Récupère les données du capteur inertielle (IMU)
 
     Returns:
@@ -48,6 +48,7 @@ def IMU() -> tuple[np.ndarray,float]:
     # voir : https://cdn-learn.adafruit.com/downloads/pdf/adafruit-9-dof-orientation-imu-fusion-breakout-bno085.pdf
     i2c = busio.I2C()
     bno = BNO08X_I2C(i2c)
+    
     bno.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
     bno.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
     
@@ -57,3 +58,6 @@ def IMU() -> tuple[np.ndarray,float]:
     yaw = np.atan2(2 * (qr * qk + qi * qj, 1 - 2 * (qj**2 + qk**2)))
     a = np.array([[ax],[ay],[az]])
     return a, yaw
+
+def IMU(bno):
+    "allo"
