@@ -17,8 +17,11 @@ Sortie :
 
 
 def send_command(cmd_vel):
-    """
-    Envoie une commande aux moteurs.
+
+    # envoyer cmd_vel aux moteurs ici
+               
+        """
+        Envoie une commande aux moteurs.
 
     Args:
         cmd_vel (dict):
@@ -33,4 +36,5 @@ def send_command(cmd_vel):
     Effet:
         Convertit en PWM et contrôle les moteurs.
     """
-    pass
+ 
+pass
