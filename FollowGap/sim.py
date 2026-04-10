@@ -6,6 +6,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+'''
+from FSM import RobotState
+
+state = RobotState()
+
+# à chaque boucle
+new_state = update_state(scan, theta_goal, robot_pos, goal_pos, state)
+'''
+
 def generate_multi_gap_lidar_xyz(
     num_points=360,
     max_range=10.0,
