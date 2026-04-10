@@ -22,8 +22,6 @@ Sorties : cmd_vel = {"linear": x, "angular": y}
 """
 # Ludo : À modifier les schémas de fonctions car peu clair et pas adapter
 
-from FTG import FollowGap #Ramène la classe FollowGap
-
 import numpy as np
 
 def navigate(theta_goal):
