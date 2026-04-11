@@ -114,3 +114,7 @@ def retour_base(theta_goal):
         "linear": linear,
         "angular": angular
     }
+
+def base_reached():
+
+    return {"linear": 0.0, "angular": 0.0}
